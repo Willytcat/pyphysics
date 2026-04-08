@@ -21,17 +21,19 @@ colors = [BLACK, WHITE, RED, GREEN, BLUE]
 class Body():
     position: Vector2
     velocity: Vector2
-    # acceleration: Vector2
+    anchored : bool
     mass: int = 1
+    forces = []
+
     radius: float = 1
     color: tuple = BLACK
     
     
-    def __init__(self, pos, vel=Vector2(), mass=1, color=BLACK, radius=10):
+    def __init__(self, pos, vel=Vector2(), mass=1, anchored=False, color=BLACK, radius=10):
         self.position = pos
         self.velocity = vel
-        # self.acceleration = Vector2()
         self.mass = mass
+        self.anchored = anchored
         
         self.color = color
         self.radius = radius
@@ -41,6 +43,13 @@ class Body():
     
     def updatePos(self):
         self.position += self.velocity
+
+    def resolveForces(self, dt: float):
+        if len(self.forces) == 0: return
+        
+        acc = vsum(self.forces)/self.mass * dt
+        self.accelerate(acc)
+        self.forces.clear()
     
     def draw(self, window):
         pygame.draw.circle(window, self.color, self.position.components, self.radius)
@@ -54,8 +63,10 @@ def exit():
     sys.exit()
             
     return 0
+
 def reset(bodies: [Body], to: Vector2, vel=Vector2()):
     for body in bodies:
+        print(body.mass)
         body.position = to
         body.velocity = vel
 
@@ -86,8 +97,8 @@ def processInput(wrote: str, bodies):
 
 
 def main():
-    WIDTH = 1920
-    HEIGHT = 1080
+    WIDTH = 800
+    HEIGHT = 800
     windowSize = Vector2(WIDTH, HEIGHT)
     window = pygame.display.set_mode((WIDTH, HEIGHT))
     pygame.display.set_caption("Physics")
@@ -96,20 +107,33 @@ def main():
     # gravityDir = -Vector2.yAxis #Vector2.zero
     gravityDir = Vector2.zero
     G = 9.81
-    GC = 6.67430e1 #e-11
+    GC = 66743.0 #6.67430e-11
     lastTick = time()
     
     background_color = BLACK
     bodies_colors = [c for c in colors if c != background_color]
     bodies = []
-    for i in range(rnd.randint(2, 3)):
-        bodies.append(Body(
-            windowSize/rnd.uniform(2, 3),
-            # Vector2(rnd.uniform(-10, 10), rnd.uniform(-10, 10)),
-            mass=rnd.randint(1, 20),
-            color=bodies_colors[rnd.randint(0, len(bodies_colors) - 1)],
-            radius=rnd.randint(10, 20)
-        ))
+    bodies.append(Body(
+        windowSize/2 - Vector2(300),
+        vel=Vector2(1, 1),
+        mass=5.972,
+        color=bodies_colors[rnd.randint(0, len(bodies_colors) - 1)]
+    ))
+
+    bodies.append(Body(
+        windowSize/2 + Vector2(300),
+        vel=-Vector2(1, 1),
+        mass=7.347,
+        color=bodies_colors[rnd.randint(0, len(bodies_colors) - 1)]
+    ))
+    # for i in range(rnd.randint(2, 3)):
+    #     bodies.append(Body(
+    #         windowSize/rnd.uniform(2, 3),
+    #         # Vector2(rnd.uniform(-10, 10), rnd.uniform(-10, 10)),
+    #         mass=rnd.randint(1, 5),
+    #         color=bodies_colors[rnd.randint(0, len(bodies_colors) - 1)],
+    #         radius=rnd.randint(10, 20)
+    #     ))
     
     while True:
         processed = processInput(wroteText, bodies)
@@ -126,6 +150,7 @@ def main():
         
         now = time()
         dt = lastTick - now
+        
         # Clear previous render
         window.fill(background_color)
         
@@ -140,80 +165,91 @@ def main():
         phy_bodies = list(bodies)
 
         for body in bodies:
-            relPos = body.getRelativePos(windowSize)
-            
-            forces = []
-            forceSum = Vector2()
-            
-            
-            g = body.mass * G
-            gF: Vector2 = g * gravityDir
-            forces.append(gF)
-            # forceSum += gF
-
-            # phy_bodies.remove(body)
-            for other in phy_bodies:
-                distance = body.position - other.position
+            if not body.anchored:
+                relPos = body.getRelativePos(windowSize)
                 
-                if distance.magnitude != 0:
-                    direction = distance.unit
-                    bodyGF = GC*(body.mass*other.mass / distance.magnitude**2)
-                    forces.append(bodyGF*direction)
-
-
-
+                # forces = []
+                # forceSum = Vector2()
                 
-            # print(phy_bodies)
-            
-            
-            if mouseInput[0] or mouseInput[2]:
-                forceType = mouseInput[0] and 0.5 or -1
-                distance = body.position - mousePos
-                if distance.magnitude < 1e4:
-                    forces.append(forceType * distance.unit * 3e4/distance.magnitude)
-                    # forceSum += -(body.position - mousePos).unit * 10
-            
-            
-            # Collision Y
-            # if abs(relPos.y) + body.radius > HEIGHT:
-            #     normal = Vector2(0, utils.sign(relPos.y))
-            #     print("COllide Y")
+                if gravityDir.magnitude > 0:
+                    g = body.mass * G
+                    gF: Vector2 = g * gravityDir
+                    body.forces.append(gF)
+                    # forceSum += gF
 
-            #     if body.velocity > Vector2.zero:
-            #         diff = normal.dot(body.velocity.unit) * .6
+                phy_bodies.remove(body)
+                for other in phy_bodies:
+                    distance = body.position - other.position
                     
-            #         # forceSum += gF * normal.dot(gF.unit)
-            #         for i in range(len(forces)):
-            #             force = forces[i]
-            #             if force.magnitude > 0:
-            #                 forces.append(force * normal.dot(force.unit)* 1.3)
+                    if distance.magnitude-body.radius-other.radius < 0:
+                        print('collision')
+
+                    if distance.magnitude != 0:
+                        direction = distance.unit
+                        bodyGF = GC*(body.mass*other.mass / distance.magnitude**2)
+                        
+                        body.forces.append(bodyGF*direction)
+                        other.forces.append(bodyGF*-direction)
+
+
+
                     
-            #         body.velocity = Vector2(body.velocity.x, body.velocity.y * -diff)
-            
-            # # Collision X
-            # if abs(relPos.x) + body.radius > WIDTH:
-            #     normal = Vector2(utils.sign(relPos.x))
-            #     print("Collide X")
+                # print(phy_bodies)
                 
-            #     if body.velocity > Vector2.zero:
-            #         diff = normal.dot(body.velocity.unit) * .6
+                
+                if mouseInput[0] or mouseInput[2]:
+                    forceType = mouseInput[0] and 1 or -1
+                    distance = body.position - mousePos
+                    if distance.magnitude < 1e4:
+                        body.forces.append(forceType * distance.unit * 3e4/distance.magnitude)
+                        # forceSum += -(body.position - mousePos).unit * 10
+                
+                
+                # Collision Y
+                # if abs(relPos.y) + body.radius > HEIGHT:
+                #     normal = Vector2(0, utils.sign(relPos.y))
+                #     print("COllide Y")
+
+                #     if body.velocity > Vector2.zero:
+                #         diff = normal.dot(body.velocity.unit) * .6
+                        
+                #         # forceSum += gF * normal.dot(gF.unit)
+                #         for i in range(len(body.forces)):
+                #             force = body.forces[i]
+                #             if force.magnitude > 0:
+                #                 body.forces.append(force * normal.dot(force.unit)* 1.3)
+                        
+                #         body.velocity = Vector2(body.velocity.x, body.velocity.y * -diff)
+                
+                # # Collision X
+                # if abs(relPos.x) + body.radius > WIDTH:
+                #     normal = Vector2(utils.sign(relPos.x))
+                #     print("Collide X")
                     
-            #         # forceSum += gF * normal.dot(gF.unit)
-            #         for i in range(len(forces)):
-            #             force = forces[i]
-            #             if force.magnitude > 0:
-            #                 forces.append(force * normal.dot(force.unit) * 1.3)
-                    
-            #         body.velocity = Vector2(body.velocity.x * -diff, body.velocity.y)
-                    
-            
-            # acc = vsum(forces)/body.mass * dt
-            acc = vsum(forces)/body.mass * dt
-            body.accelerate(acc)
-            body.updatePos()
+                #     if body.velocity > Vector2.zero:
+                #         diff = normal.dot(body.velocity.unit) * .6
+                        
+                #         # forceSum += gF * normal.dot(gF.unit)
+                #         for i in range(len(body.forces)):
+                #             force = body.forces[i]
+                #             if force.magnitude > 0:
+                #                 body.forces.append(force * normal.dot(force.unit) * 1.3)
+                        
+                #         body.velocity = Vector2(body.velocity.x * -diff, body.velocity.y)
+                        
+                
+                # body.resolveForces(dt)
+                # print(body.forces)
+                
+                if len(body.forces) != 0:
+                    acc = vsum(body.forces)/body.mass * dt
+                    body.accelerate(acc)
+                    body.updatePos()
             
             body.draw(window)
-            drawVectors(window, body.position, forces, color=GREEN)
+            drawVectors(window, body.position, body.forces, color=GREEN)
+
+            body.forces.clear()
         
         
         # Rendering
