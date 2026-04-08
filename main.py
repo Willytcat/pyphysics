@@ -23,7 +23,7 @@ class Body():
     velocity: Vector2
     anchored : bool
     mass: int = 1
-    forces = []
+    forces: list
 
     radius: float = 1
     color: tuple = BLACK
@@ -37,6 +37,7 @@ class Body():
         
         self.color = color
         self.radius = radius
+        self.forces = []
         
     def accelerate(self, acc):
         self.velocity += acc
@@ -115,14 +116,14 @@ def main():
     bodies = []
     bodies.append(Body(
         windowSize/2 - Vector2(300),
-        vel=Vector2(1, 1),
+        vel=Vector2(1, 1)*2,
         mass=5.972,
         color=bodies_colors[rnd.randint(0, len(bodies_colors) - 1)]
     ))
 
     bodies.append(Body(
         windowSize/2 + Vector2(300),
-        vel=-Vector2(1, 1),
+        vel=Vector2(-1, -1)*2,
         mass=7.347,
         color=bodies_colors[rnd.randint(0, len(bodies_colors) - 1)]
     ))
@@ -189,7 +190,9 @@ def main():
                         bodyGF = GC*(body.mass*other.mass / distance.magnitude**2)
                         
                         body.forces.append(bodyGF*direction)
-                        other.forces.append(bodyGF*-direction)
+                        other.forces.append(-bodyGF*direction)
+                        # other.forces.append(-bodyGF*direction)
+                        # print(other.forces)
 
 
 
@@ -245,6 +248,8 @@ def main():
                     acc = vsum(body.forces)/body.mass * dt
                     body.accelerate(acc)
                     body.updatePos()
+                else:
+                    print(body)
             
             body.draw(window)
             drawVectors(window, body.position, body.forces, color=GREEN)
