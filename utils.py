@@ -1,4 +1,5 @@
 from pyvectors import *
+import pygame
 
 def isSequence(v):
     return type(v) is list or type(v) is tuple

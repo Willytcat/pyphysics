@@ -52,11 +52,19 @@ class Body():
     
     def draw(self, window):
         pygame.draw.circle(window, self.color, self.position.components, self.radius)
-        # pygame.draw.polygon()
     
     def getRelativePos(self, surfaceSize: Vector2):
         return self.position*2 - surfaceSize
 
+
+class Constraint():
+    active = True
+
+    def __init__(self):
+        print("new constraint")
+
+
+    
 
 class Simulation():
     window: pygame.Surface
@@ -67,7 +75,7 @@ class Simulation():
 
     G = 9.81
     GC = 6.67
-    gravityDir = Vector2(0, -1)
+    gravityDir = Vector2(0, 1)
 
     def __init__(self, window, bodies):
         self.window = window
@@ -95,17 +103,18 @@ class Simulation():
     def simulate(self, body: Body, dt):
         if body.anchored: return
 
+        # body.forces.clear()
+
         windowSize = Vector2(self.window.get_size())
         relPos = body.getRelativePos(windowSize)
 
         if self.gravityDir.magnitude > 0:
             g = body.mass * self.G
-            gF: Vector2 = g * self.gravityDir
-            body.forces.append(gF)
+            body.forces.append(g * self.gravityDir)
 
 
-        # borderNormal = relPos + Vector2.one * body.radius // windowSize
-        print(relPos)
+        # borderNormal = relPos // windowSize
+        # print(borderNormal)
         
         # if borderNormal.magnitude > 1:
         #     if body.velocity > Vector2.zero:
@@ -115,42 +124,52 @@ class Simulation():
         #     for force in body.forces:
         #             if force.magnitude > 0:
         #                 body.forces.append(force * borderNormal.dot(force.unit) * 1.1)
-
+        # print(relPos)
         if abs(relPos.y) + body.radius > 800:
-            normal = Vector2(0, utils.sign(relPos.y))
-            print("Collide Y")
+            normal = Vector2(0, -utils.sign(relPos.y))
+            penetrationDepth = abs(relPos.y) + body.radius - 800
 
             if body.velocity > Vector2.zero:
-                diff = normal.dot(body.velocity.unit) * .95
+                diff = normal.dot(body.velocity.unit) * .5
                 body.velocity = Vector2(body.velocity.x, body.velocity.y * -diff)
-
+            
             for i in range(len(body.forces)):
                 force = body.forces[i]
                 if force.magnitude > 0:
-                    body.forces.append(force * normal.dot(force.unit)* 1.1)
+                    body.forces.append(force * normal.dot(force.unit) * penetrationDepth/1)
+
+            body.position += normal * penetrationDepth/body.mass
+            # body.forces.append(penetrationDepth * nonCorrectedCount * 3 * normal)
         
         # Collision X
         if abs(relPos.x) + body.radius > 800:
-            normal = Vector2(utils.sign(relPos.x))
-            print("Collide X")
+            normal = Vector2(-utils.sign(relPos.x))
+            penetrationDepth = abs(relPos.x) + body.radius - 800
+
+            # if penetrationDepth > 0:
+            #     body.position += Vector2(penetrationDepth * -utils.sign(relPos.x))
+            body.forces.append(penetrationDepth* 3 * normal)
 
             if body.velocity > Vector2.zero:
-                diff = normal.dot(body.velocity.unit) * .95
+                diff = normal.dot(body.velocity.unit) * .5
                 body.velocity = Vector2(body.velocity.x * -diff, body.velocity.y)
 
+            nonCorrectedCount = 0
             for i in range(len(body.forces)):
                 force = body.forces[i]
                 if force.magnitude > 0:
-                    body.forces.append(force * normal.dot(force.unit) * 1.1)
+                    diff = normal.dot(force.unit)
+                    # if diff == 0:
+                    #     print("Non countered force x")
+                    #     nonCorrectedCount += 1
+                    # else:
+                    body.forces.append(force * normal.dot(force.unit) * penetrationDepth/1)
+
+            body.forces.append(penetrationDepth * 3 * normal)
             
         acc = vsum(body.forces) / body.mass * dt
         body.accelerate(acc)
         body.updatePos()
-
-        body.forces.clear()
-
-        # for other in self._phyBodies:
-        #     if other == body: continue
 
 
 # def simulate(sim: Simulation, body: Body, dt=None):
