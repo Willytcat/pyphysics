@@ -4,6 +4,7 @@ import utils
 from time import time
 from pyvectors import *
 import drawer
+import collision
 
 
 ## Conventions:
@@ -22,18 +23,20 @@ class Body():
     canCollide: bool = True
     
     shape: drawer.Shape
+    hitbox: collision.Collider
     
     
-    def __init__(self, pos=Vector2(), vel=Vector2(), shape=drawer.Circle(10)):
+    def __init__(self, pos=Vector2(), vel=Vector2(), shape=None):
         self.position = pos
         self.velocity = vel
-        self.shape = shape
+        self.shape = shape==None and shape or drawer.Circle(10)
         
         self.forces = []
 
     def __str__(self):
         return f"Body at {self.position}"
-        
+
+    
     def accelerate(self, dt):
         if len(self.forces) == 0: return
 
@@ -41,6 +44,14 @@ class Body():
         acc = vsum(self.forces) / self.mass * dt
         self.velocity += acc
         self.position += self.velocity
+
+    
+    def translate(self, translation: Vector2):
+        self.position += translation
+
+    
+    def rotate(self, radians: float):
+        self.shape.rotate(radians)
     
     
     def draw(self, window):
@@ -102,64 +113,64 @@ class Simulation():
         windowSize = Vector2(self.window.get_size())
         relPos = body.getRelativePos(windowSize)
 
-        # if self.gravityDir.magnitude > 0:
-        #     g = body.mass * self.G
-        #     body.forces.append(g * self.gravityDir)
+        if self.gravityDir.magnitude > 0:
+            g = body.mass * self.G
+            body.forces.append(g * self.gravityDir)
 
         for other in self.bodies:
             if other == body: continue
 
             distance = other.position - body.position
-            penetrationDepth = body.radius + other.radius - distance.magnitude
+            # penetrationDepth = body.radius + other.radius - distance.magnitude
 
-            if penetrationDepth > 0 and distance.magnitude != 0:
-                print("Collision", time())
-                normal = distance.unit
+            # if penetrationDepth > 0 and distance.magnitude != 0:
+            #     print("Collision", time())
+            #     normal = distance.unit
 
-                other.color = Color("red")
+            #     other.color = Color("red")
 
-                body.position -= normal * penetrationDepth
+            #     body.position -= normal * penetrationDepth
 
-                # bounce = 0.8
-                # if body.velocity > Vector2.zero:
-                #     body.velocity *= -bounce*normal
+            #     # bounce = 0.8
+            #     # if body.velocity > Vector2.zero:
+            #     #     body.velocity *= -bounce*normal
                 
-                # # for force in body.forces:
-                # #     if force.magnitude > 0:
-                # #         diff = normal.dot(force.unit)
-                # #         if diff < 0:
-                # #             body.forces.append(force * normal.dot(force.unit) * penetrationDepth)
-            else:
-                other.color = Color("white")
+            #     # # for force in body.forces:
+            #     # #     if force.magnitude > 0:
+            #     # #         diff = normal.dot(force.unit)
+            #     # #         if diff < 0:
+            #     # #             body.forces.append(force * normal.dot(force.unit) * penetrationDepth)
+            # else:
+            #     other.color = Color("white")
 
-            # if distance.magnitude != 0:
-            #     direction = distance.unit
-            #     attractionForce = self.GC*(body.mass*other.mass / distance.magnitude**2)
+            if distance.magnitude != 0:
+                direction = distance.unit
+                attractionForce = self.GC*(body.mass*other.mass / distance.magnitude**2)
 
-            #     body.forces.append(attractionForce*direction)
-            #     # other.forces.append(-attractionForce*direction)
+                body.forces.append(attractionForce*direction)
+                # other.forces.append(-attractionForce*direction)
 
 
-        # for i, comp in enumerate(relPos.components):
-        #     windowComp = windowSize.components[i]
+        for i, comp in enumerate(relPos.components):
+            windowComp = windowSize.components[i]
 
-        #     if abs(comp) + body.radius > windowComp/2:
-        #         # print(f"Border collision {i==0 and 'X' or 'Y'}")
-        #         normal = i==0 and Vector2(-utils.sign(comp)) or Vector2(0, -utils.sign(comp))
-        #         penetrationDepth = (abs(comp) + body.radius - windowComp/2) / body.penetrationAcceptance
+            if abs(comp) + body.shape.radius > windowComp/2:
+                # print(f"Border collision {i==0 and 'X' or 'Y'}")
+                normal = i==0 and Vector2(-utils.sign(comp)) or Vector2(0, -utils.sign(comp))
+                penetrationDepth = (abs(comp) + body.shape.radius - windowComp/2) / body.penetrationAcceptance
 
-        #         if penetrationDepth > body.penetrationAcceptance:
-        #             body.position += normal * penetrationDepth
+                if penetrationDepth > body.penetrationAcceptance:
+                    body.position += normal * penetrationDepth
 
-        #         borderBounce = 0.8
-        #         if body.velocity > Vector2.zero:
-        #             body.velocity *= i==0 and Vector2(-borderBounce, 1) or Vector2(1, -borderBounce)
+                if body.velocity > Vector2.zero:
+                    borderBounce = utils.sign(normal.dot(body.velocity)) * 0.4
+                    body.velocity *= i==0 and Vector2(borderBounce, 1) or Vector2(1, borderBounce)
                 
-        #         for force in body.forces:
-        #             if force.magnitude > 0:
-        #                 diff = normal.dot(force.unit)
-        #                 if diff < 0:
-        #                     body.forces.append(force * normal.dot(force.unit) * penetrationDepth)
+                for force in body.forces:
+                    if force.magnitude > 0:
+                        diff = normal.dot(force.unit)
+                        if diff < 0:
+                            body.forces.append(force * normal.dot(force.unit) * penetrationDepth)
             
         body.accelerate(dt)
 

@@ -84,7 +84,7 @@ def main():
 
     body1 = phy.Body(windowSize/2)
     body1.shape.color = bodies_colors[rnd.randint(0, len(bodies_colors)-1)]
-    body1.shape.radius = 50
+    body1.shape.radius = 150
     
     body1.exerceForce = True
     body1.anchored = False
@@ -96,28 +96,33 @@ def main():
 
     body2 = phy.Body(windowSize/2-Vector2(body1.shape.radius))
     body2.shape.color = bodies_colors[rnd.randint(0, len(bodies_colors)-1)]
-    body2.shape.radius = 10
+    body2.shape.radius = 20
     
     body2.exerceForce = True
-    body2.anchored = True
-    body2.mass = 10
+    body2.anchored = False
+    body2.mass = 20
     body2.penetrationAcceptance = 2
 
     sim_bodies.append(body2)
 
-    # for i in range(10):
-    #     body = phy.Body()
-    #     body.radius = 10
-    #     body.penetrationAcceptance = 1
-    #     body.mass = rnd.randint(10, 100)
-    #     body.color = bodies_colors[rnd.randint(0, len(bodies_colors)-1)]
+    
+    body3 = phy.Body(windowSize/2, shape=drawer.Rect(10, 20))
+    body3.shape = drawer.Rect(100, 200)
+    body3.shape.color = bodies_colors[rnd.randint(0, len(bodies_colors)-1)]
+    
+    body3.exerceForce = True
+    body3.anchored = True
+    body3.mass = 20
+    body3.penetrationAcceptance = 2
 
-    #     sim_bodies.append(body)
+    sim_bodies.append(body3)
 
 
     sim = phy.Simulation(window, sim_bodies)
     sim.gravityDir = Vector2(0, 1)
     sim.GC = 5
+
+    rotation = 0
 
     
     while True:
@@ -162,6 +167,9 @@ def main():
         # a = F/m
         
         sim.newStep()
+
+        rotation += 0.01
+        body3.rotate(rotation)
         
         for body in sim.bodies:
             body.forces.clear()
