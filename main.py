@@ -8,6 +8,8 @@ import physics as phy
 from pyvectors import *
 from time import *
 
+import minigame as game
+
 
 Color = pygame.color.Color
 
@@ -32,98 +34,61 @@ def exit():
     return False
 
 
+gameSpecialActions = {
+    "exit": exit
+}
 
-def processInput(wrote: str):
+def processInput(data: dict, keyBinds: dict):
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             return exit()
 
-        
-
         if event.type == pygame.KEYDOWN:
-            if event.key == 27: # Exits on echap
-                return exit()
-
+            boundInput = keyBinds.get(event.key)
+            if boundInput is None: continue
             
+            if boundInput["type"] == "action":
+                inputData = []
+                for dataName in boundInput["requiredData"]:
+                    requiredData = data.get(dataName)
+                    if not requiredData:
+                        raise Exception(f"missing required data ({requiredData}) for input, key: {event.key}")
 
-            # elif event.key == 127: # Reset on suppr
-            #     wrote = ""
-            #     return 1
+                    inputData.append(requiredData)
 
-            # elif event.key == 8: # Delete wrote text
-            #     wrote = wrote[:-1]
+                boundInput["callback"](*inputData)
 
-            # elif event.key == 1073741892: # Toggles full screen
-            #     pygame.display.toggle_fullscreen()
+            elif boundInput["type"] == "specialAction":
+                action = gameSpecialActions.get(boundInput["action"])
+                if not action:
+                    raise Exception(
+                        f"missing special action '{boundInput["action"]}', bound to key {event.key}"
+                        )
 
-            # elif event.key == 97:
-            #     return 'newBody'
-            
-        if event.type == pygame.TEXTINPUT:
-            wrote += event.text
-
-    return wrote
-
+                action()
 
 
 
 def main():
-    WIDTH = 800
-    HEIGHT = 800
-    windowSize = Vector2(WIDTH, HEIGHT)
+    WIDTH = game.windowSize.x
+    HEIGHT = game.windowSize.y
+    windowSize = game.windowSize
+    
     window = pygame.display.set_mode((WIDTH, HEIGHT))
     pygame.display.set_caption("Physics")
-    wroteText = ""
-    lastTick = time()
-
 
     background_color = BLACK
     vector_color = GREEN
     bodies_colors = [c for c in colors if c != background_color and c != vector_color]
-    sim_bodies = []
+    sim = game.phySimulation
 
-    body1 = phy.Body(windowSize/2)
-    body1.shape.color = bodies_colors[rnd.randint(0, len(bodies_colors)-1)]
-    body1.shape.radius = 150
+    inputData = {
+        "mousePosition": Vector2()
+        }
+
+    lastTick = time()
     
-    body1.exerceForce = True
-    body1.anchored = False
-    body1.mass = 10
-    body1.penetrationAcceptance = 2
-    
-    sim_bodies.append(body1)
-
-
-    body2 = phy.Body(windowSize/2-Vector2(body1.shape.radius))
-    body2.shape.color = bodies_colors[rnd.randint(0, len(bodies_colors)-1)]
-    body2.shape.radius = 20
-    
-    body2.exerceForce = True
-    body2.anchored = False
-    body2.mass = 20
-    body2.penetrationAcceptance = 2
-
-    sim_bodies.append(body2)
-
-    
-    body3 = phy.Body(windowSize/2, shape=drawer.Rect(10, 20))
-    body3.shape = drawer.Rect(100, 200)
-    body3.shape.color = bodies_colors[rnd.randint(0, len(bodies_colors)-1)]
-    
-    body3.exerceForce = True
-    body3.anchored = True
-    body3.mass = 20
-    body3.penetrationAcceptance = 2
-
-    sim_bodies.append(body3)
-
-
-    sim = phy.Simulation(window, sim_bodies)
-    sim.gravityDir = Vector2(0, 1)
-    sim.GC = 5
-
-    rotation = 0
-
+    game.start()
     
     while True:
         mouseInput = pygame.mouse.get_pressed()
@@ -132,31 +97,11 @@ def main():
         now = time()
         dt = now - lastTick
 
+        inputData["mousePosition"] = mousePos
 
-        # processed = processInput(wroteText)
-        # if processed == False:
-        #     break
-
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                return exit()
-
-            if event.type == pygame.KEYDOWN:
-                if event.key == 27: # Exits on echap
-                    return exit()
-
-                if event.key == 1073741904:
-                    body2.position += Vector2(-10)
-                
-                if event.key == 1073741906:
-                    body2.position += Vector2(0, -10)
-
-                if event.key == 1073741903:
-                    body2.position += Vector2(10)
-
-                if event.key == 1073741905:
-                    body2.position += Vector2(0, 10)
-                # print(event.key)
+        processed = processInput(inputData, game.keyBinds)
+        if processed == False:
+            break
         
 
         # Clear previous render
@@ -165,21 +110,23 @@ def main():
         # Physics
         # F = ma
         # a = F/m
+
+        game.prePhysics(dt)
         
         sim.newStep()
 
-        rotation += 0.01
-        body3.rotate(rotation)
+        # rotation += 0.01
+        # body3.rotate(rotation)
         
         for body in sim.bodies:
             body.forces.clear()
 
-            if mouseInput[0] or mouseInput[2]:
-                forceType = mouseInput[0] and -1 or 1
-                distance = body.position - mousePos
+            # if mouseInput[0] or mouseInput[2]:
+            #     forceType = mouseInput[0] and -1 or 1
+            #     distance = body.position - mousePos
 
-                if 0 < distance.magnitude < 1e4:
-                    body.forces.append(forceType * distance.unit * 3e4/distance.magnitude)
+            #     if 0 < distance.magnitude < 1e4:
+            #         body.forces.append(forceType * distance.unit * 3e4/distance.magnitude)
             
             sim.simulate(body, dt)
             
@@ -195,5 +142,4 @@ def main():
 
 
 if __name__=="__main__":
-
     main()
